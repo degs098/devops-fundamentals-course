@@ -3,8 +3,6 @@
 # Set default threshold value
 THRESHOLD=${1:-10}
 
-echo $THRESHOLD
-
 while true
 do
     # Get available disk space in GB
@@ -12,7 +10,7 @@ do
 
     echo 'Free disk space in GB' $FREE_SPACE
     # Compare available disk space with threshold value
-    if [ "$FREE_SPACE" -lt "$THRESHOLD" ]
+    if [[ "$FREE_SPACE" -lt "$THRESHOLD" ]]
     then
         # Send warning message
         echo "Warning: Free disk space is below $THRESHOLD GB"
