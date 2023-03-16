@@ -74,6 +74,7 @@ function isInputValid() {
   local INPUT
   INPUT=${1}
 
+  # Checks that the input received is valid on the regex
   if [[ ! "$INPUT" =~ ^[a-zA-Z\ ]+$ ]]
   then
     echo "Input must be latin letters"
@@ -85,6 +86,9 @@ function isInputValid() {
 function createBackup() {
   echo "Creating database backup..."
   local DB_BACKUP_FILE
+  
+  # It stores a variable with the yyyy-mm-dd-users.db.backup format
+  # for e.g 2023-03-15-users.db.backup
   DB_BACKUP_FILE=$(date +"%Y-%m-%d"-users.db.backup)
 
   cp $USERS_DB "$DATA_FOLDER/$DB_BACKUP_FILE"
@@ -93,7 +97,10 @@ function createBackup() {
 
 # Restores the users.db file from the most recent backup file generated
 function restoreBackup() {
+  # Searches into the $DATA_FOLDER all the files with name ended on .backup
+  # and it returns the most recent file sorted by name
   LAST_BACKUP_FILE_GENERATED=$(find $DATA_FOLDER -type f -name "*.backup" | sort -z | head -1)
+
   echo "Restoring database from " "$LAST_BACKUP_FILE_GENERATED"
   cat $LAST_BACKUP_FILE_GENERATED > $USERS_DB
   echo "Database restored"
@@ -116,12 +123,16 @@ function listUsers() {
   local INVERSE
   INVERSE=${1}
   local DB_CONTENT
+
+  # It gets all the $USERS_DB file content and print it in a numbered list format
   DB_CONTENT=$(cat $USERS_DB | awk '{ print NR". " $0 }')
 
+  # If the '-inverse' argument is not present then prints the sorted list 
   if [ -z "$INVERSE" ]
     then
       echo "$DB_CONTENT"
     else
+      # Otherwise it prints the list in reversed order
       echo "$DB_CONTENT" | tail -r
   fi
 }
