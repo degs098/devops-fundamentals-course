@@ -1,0 +1,95 @@
+# This file is a template, and might need editing before it works on your project.
+# This is a sample GitLab CI/CD configuration file that should run without any modifications.
+# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
+# it uses echo commands to simulate the pipeline execution.
+#
+# A pipeline is composed of independent jobs that run scripts, grouped into stages.
+# Stages run in sequential order, but jobs within stages run in parallel.
+#
+# For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
+#
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+default:
+  image: node:18.16.0
+
+stages: # List of stages for jobs, and their order of execution
+  - build
+  - test
+  - deploy
+  - run
+
+variables:
+  AWS_PLATFORM: Docker
+  APPLICATION_NAME: shop-angular-cloudfront
+  AWS_VERSION_LABEL: ${APPLICATION_NAME}-${CI_COMMIT_SHA}-${CI_PIPELINE_ID}
+  CHROME_BIN: /usr/bin/google-chrome-stable
+  ENVIRONMENT_NAME: production
+  SSH_KEY: Personal
+
+build-job:       # This job runs in the build stage, which runs first.
+  stage: build
+  script:
+    - npm ci --include=dev
+    - npm run ng build -- --configuration=production
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 10 minutes
+
+unit-test-job:   # This job runs in the test stage.
+  image: timbru31/node-chrome
+  stage: test    # It only starts when the job in the build stage completes successfully.
+  script:
+    - npm ci --include=dev
+    - npm run test
+  allow_failure: true
+
+lint-test-job:   # This job also runs in the test stage.
+  stage: test    # It can run at the same time as unit-test-job (in parallel).
+  script:
+    - npm ci --include=dev
+    - npm run lint
+
+audit-test-job:   # This job also runs in the test stage.
+  stage: test    # It can run at the same time as unit-test-job (in parallel).
+  script:
+    - npm ci --include=dev
+    - npm audit
+  allow_failure: true
+
+deploy:
+  stage: deploy
+  image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+  script: |
+    aws --version
+    echo "Copying .zip to S3 bucket..."
+    aws s3 sync ./dist/app s3://${S3_BUCKET_NAME}
+    echo "Creating invalidation on Cloudfront distribution..."
+    aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths '/*'
+  environment:
+    name: production
+  only:
+    - main
+
+sonarqube-check:
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner -Dsonar.qualitygate.wait=true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_REF_NAME == 'main' || $CI_PIPELINE_SOURCE == 'merge_request_event'
